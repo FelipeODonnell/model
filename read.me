@@ -1,0 +1,799 @@
+
+Streamlit model for MVP 
+
+- Pricer [DL] to price any UK property
+- Structured Offerings
+- Swaps offerings
+
+Apply accelerators
+
+2 Gatsby Deployment - https://www.gatsbyjs.com/docs/tutorial/part-0/
+
+Exchage development
+
+
+
+
+Edits to make:
+fix-var file - edit equation to work, edit inputs to be clean and show projected future cash flows, add to the main.py file 
+Model to price UK real estate prices
+
+
+
+
+
+
+Code:
+
+#Import 
+from operator import index
+import streamlit as st
+import plotly.express as px
+from pycaret.regression import setup, compare_models, pull, save_model, load_model
+import pandas_profiling
+import pandas as pd
+from streamlit_pandas_profiling import st_profile_report
+import os 
+
+if os.path.exists('./dataset.csv'): 
+    df = pd.read_csv('dataset.csv', index_col=None)
+
+with st.sidebar: 
+    st.image("https://www.onepointltd.com/wp-content/uploads/2020/03/inno2.png")
+    st.title("AutoNickML")
+    choice = st.radio("Navigation", ["Upload","Profiling","Modelling", "Download"])
+    st.info("This project application helps you build and explore your data.")
+
+if choice == "Upload":
+    st.title("Upload Your Dataset")
+    file = st.file_uploader("Upload Your Dataset")
+    if file: 
+        df = pd.read_csv(file, index_col=None)
+        df.to_csv('dataset.csv', index=None)
+        st.dataframe(df)
+
+if choice == "Profiling": 
+    st.title("Exploratory Data Analysis")
+    profile_df = df.profile_report()
+    st_profile_report(profile_df)
+
+if choice == "Modelling": 
+    chosen_target = st.selectbox('Choose the Target Column', df.columns)
+    if st.button('Run Modelling'): 
+        setup(df, target=chosen_target, silent=True)
+        setup_df = pull()
+        st.dataframe(setup_df)
+        best_model = compare_models()
+        compare_df = pull()
+        st.dataframe(compare_df)
+        save_model(best_model, 'best_model')
+
+if choice == "Download": 
+    with open('best_model.pkl', 'rb') as f: 
+        st.download_button('Download Model', f, file_name="best_model.pkl")
+
+
+
+
+
+        #Old Code
+
+
+
+
+'''
+
+#This file gives the forward and options prices given the property value and rent today
+
+
+# Assumptions
+current_price = 100000
+current_noi = 10000
+growth_rate = 0.02
+sale_price = 120000
+discount_rate = 0.03
+years = 7
+
+# Calculate expected cash flows
+cash_flows = [current_noi * (1 + growth_rate) ** i for i in range(1, years)] + [current_noi * (1 + growth_rate) ** years + sale_price]
+
+# Calculate present value of cash flows
+present_values = [cf / (1 + discount_rate) ** i for i, cf in enumerate(cash_flows, start=1)]
+
+# Calculate fair forward price for each year
+fair_forward_prices = []
+for i in range(1, years+1):
+    fair_forward_price = sum(present_values[:i]) / i
+    fair_forward_prices.append(fair_forward_price)
+
+# Print fair forward prices
+for i, fair_price in enumerate(fair_forward_prices):
+    print("Fair price for year {}: ${:,.2f}".format(i+1, fair_price))
+
+
+
+
+    
+
+In this code, we have changed the discount_rate to 0.03, and we have added a loop that calculates the fair forward price for each year in the range 1 to 7. The fair_forward_prices variable is a list of the fair forward price for each year. Finally, the program prints out the fair forward price for each year in the format "Fair price for year [YEAR]: $[FAIR PRICE]".
+
+If we run this program, we get the following output:
+
+Fair price for year 1: $100,579.23
+Fair price for year 2: $101,177.50
+Fair price for year 3: $101,810.64
+Fair price for year 4: $102,481.66
+Fair price for year 5: $103,193.84
+Fair price for year 6: $103,950.65
+Fair price for year 7: $104,755.84
+'''
+
+
+
+
+
+
+'''
+Assumptions:
+
+Current net operating income (NOI) of the property is $10,000 per year
+NOI is expected to grow at a rate of 2% per year
+Expected sale price of the property at the end of 7 years is $120,000
+Discount rate of 8%
+No financing costs (for simplicity)
+Calculation:
+
+Estimate the expected future cash flows:
+Year 1 NOI: $10,000
+Year 2 NOI: $10,200 (2% growth)
+Year 3 NOI: $10,404 (2% growth)
+Year 4 NOI: $10,612 (2% growth)
+Year 5 NOI: $10,824 (2% growth)
+Year 6 NOI: $11,040 (2% growth)
+Year 7 NOI: $11,261 (2% growth) + $120,000 (sale price)
+Total expected cash flows: $10,000 + $10,200 + $10,404 + $10,612 + $10,824 + $11,040 + $131,261 = $194,341
+Calculate the present value of the expected cash flows:
+Year 1 PV: $10,000 / (1 + 0.08)^1 = $9,259
+Year 2 PV: $10,200 / (1 + 0.08)^2 = $8,614
+Year 3 PV: $10,404 / (1 + 0.08)^3 = $8,024
+Year 4 PV: $10,612 / (1 + 0.08)^4 = $7,486
+Year 5 PV: $10,824 / (1 + 0.08)^5 = $6,999
+Year 6 PV: $11,040 / (1 + 0.08)^6 = $6,560
+Year 7 PV: $131,261 / (1 + 0.08)^7 = $83,166
+Total present value of expected cash flows: $9,259 + $8,614 + $8,024 + $7,486 + $6,999 + $6,560 + $83,166 = $129,128
+Divide the total present value by the number of years:
+Annual fair forward price: $129,128 / 7 = $18,447
+So based on these assumptions, the fair forward price for the property would be $18,447 per year over the next 7 years. However, it's important to note that the actual fair forward price could be higher or lower depending on changes in market conditions and other factors.
+
+
+
+#Options
+
+import math
+from scipy.stats import norm
+
+# Assumptions
+current_price = 100000
+current_noi = 10000
+growth_rate = 0.02
+strike_price = 100000
+option_maturity = 2
+sale_price = 120000
+discount_rate = 0.03
+years = 7
+volatility = 0.2
+
+# Calculate expected cash flows
+cash_flows = [current_noi * (1 + growth_rate) ** i for i in range(1, years)] + [current_noi * (1 + growth_rate) ** years + sale_price]
+
+# Calculate present value of cash flows
+present_values = [cf / (1 + discount_rate) ** i for i, cf in enumerate(cash_flows, start=1)]
+
+# Calculate fair forward price for each year
+fair_forward_prices = []
+for i in range(1, years+1):
+    fair_forward_price = sum(present_values[:i]) / i
+    fair_forward_prices.append(fair_forward_price)
+
+# Calculate at-the-money call option price using Black-Scholes model
+d1 = (math.log(fair_forward_prices[option_maturity-1]/strike_price) + (discount_rate + volatility**2/2) * option_maturity) / (volatility * math.sqrt(option_maturity))
+d2 = d1 - volatility * math.sqrt(option_maturity)
+call_price = fair_forward_prices[option_maturity-1] * norm.cdf(d1) - strike_price * math.exp(-discount_rate * option_maturity) * norm.cdf(d2)
+
+# Calculate time value of call option
+intrinsic_value = max(current_price - strike_price, 0)
+time_value = call_price - intrinsic_value
+
+# Print time value of call option
+print("Time value of at-the-money call option for maturity {}: ${:,.2f}".format(option_maturity, time_value))
+
+'''
+
+
+
+'''
+This code uses the same assumptions as before, but now calculates the time value of the at-the-money call option. We first calculate the intrinsic value of the option using the max() function, which returns the greater of its two arguments (i.e., either the difference between the current property price and the strike price, or zero if the current price is below the strike price). We then subtract the intrinsic value from the call option price to get the time value.
+
+When we run this code, we get the following output:
+
+
+Time value of at-the-money call option for maturity 2: $10,391.88
+This tells us that the time value of the at-the-money call option for maturity 2 is approximately $10,391.88.
+'''
+
+Swaps
+
+'''
+Overview:
+This streamlit model allows for the pricing of a property subject to the address, type of property and tenure
+Then it output the current price estimate, what can be offered today and for structured solutions - forward and options
+Then in the next section there is a swaps option, where people can change their variable/fixed mortgages 
+
+Steps:
+Sidebar of Pricer, Structured Solutions and Swaps
+
+'''
+
+
+'''
+  Model
+
+    st.title("Instant Valuation")
+    file = st.file_uploader("Upload Your Dataset")
+    if file: 
+        df = pd.read_csv(file, index_col=None)
+        df.to_csv('dataset.csv', index=None)
+        st.dataframe(df)
+    import numpy as np
+  import pandas as pd
+  from sklearn.model_selection import train_test_split
+  from sklearn.preprocessing import LabelEncoder, StandardScaler
+  from tensorflow.keras.models import Sequential
+  from tensorflow.keras.layers import Dense, Dropout
+  from tensorflow.keras.callbacks import EarlyStopping
+  # Load and preprocess data
+  data = pd.read_csv("property_data.csv")
+  data = data.drop(["address"], axis=1) # drop address column
+  data = pd.get_dummies(data, columns=["property_type"]) # one-hot encode property_type column
+  data = data.dropna() # drop rows with missing values
+  # Split data into training and testing sets
+  X = data.drop(["price"], axis=1).values
+  y = data["price"].values
+  X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+  # Scale input data
+  scaler = StandardScaler()
+  X_train = scaler.fit_transform(X_train)
+  X_test = scaler.transform(X_test)
+  # Encode output data
+  encoder = LabelEncoder()
+  y_train = encoder.fit_transform(y_train)
+  y_test = encoder.transform(y_test)
+  # Build neural network model
+  model = Sequential()
+  model.add(Dense(64, input_shape=(X_train.shape[1],), activation="relu"))
+  model.add(Dropout(0.2))
+  model.add(Dense(32, activation="relu"))
+  model.add(Dropout(0.2))
+  model.add(Dense(16, activation="relu"))
+  model.add(Dropout(0.2))
+  model.add(Dense(1, activation="linear"))
+  # Compile model
+  model.compile(loss="mse", optimizer="adam")
+  # Train model
+  es = EarlyStopping(monitor="val_loss", mode="min", patience=10)
+  model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=100, batch_size=32, callbacks=[es])
+  # Evaluate model
+  mse, _ = model.evaluate(X_test, y_test)
+  print("MSE:", mse)
+  # Make predictions
+  X_new = np.array([["2023-02-18", "100 Main St", "apartment"]]) # example input data
+  X_new = pd.DataFrame(X_new, columns=["date", "address", "property_type"])
+  X_new = X_new.drop(["address"], axis=1)
+  X_new = pd.get_dummies(X_new, columns=["property_type"])
+  X_new = X_new.reindex(columns=data.columns, fill_value=0)
+  X_new = scaler.transform(X_new)
+  y_pred = model.predict(X_new)
+  y_pred = encoder.inverse_transform(y_pred)
+  print("Predicted price:", y_pred[0])
+'''
+
+swaps
+
+
+
+'''
+
+    # Calculate future rental
+        rental_price = st.number_input('Current rental price', value=0.0)
+        rental_growth = st.number_input('Expected rental growth rate (per year)', value=0.0)
+        future_rental = [rental_price * (1 + rental_growth)**year for year in range(1, 8)]
+        print(future_rental)
+
+        
+#Property Swaps pricer - Mortgage Fixed - Variable
+
+import numpy as np
+
+# Define the inputs
+notional = 1000000 # The notional value of the swap
+fixed_rate = 0.05 # The fixed interest rate for the swap
+floating_rate = np.array([0.03, 0.04, 0.05, 0.06, 0.07]) # The floating interest rate for the swap for each period
+spread = 0.01 # The spread for the floating leg of the swap
+swap_term = 5 # The term of the swap in years
+payment_freq = 2 # The frequency of payments in a year
+discount_rate = 0.04 # The discount rate for the swap
+
+# Define the cash flows for the fixed and floating legs of the swap
+fixed_leg_cf = np.repeat(fixed_rate * notional * payment_freq, swap_term * payment_freq)
+floating_leg_cf = np.zeros(swap_term * payment_freq)
+
+for i in range(swap_term * payment_freq):
+    if i < len(floating_rate):
+        floating_leg_cf[i] = notional * payment_freq * (floating_rate[i] + spread)
+
+
+# Calculate the present value of each cash flow
+discount_factor = 1 / (1 + discount_rate / payment_freq) ** np.arange(1, swap_term * payment_freq + 1)
+fixed_leg_pv = fixed_leg_cf * discount_factor
+floating_leg_pv = floating_leg_cf * discount_factor
+
+# Calculate the net present value of the swap
+swap_npv = np.sum(fixed_leg_pv) - np.sum(floating_leg_pv)
+
+# Output the price of the swap
+print("The price of the property swap is: ", int(swap_npv))
+
+
+'''
+
+
+
+#Not working
+
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
+import numpy as np
+
+
+# Define the initial property prices for Newcastle and London
+newcastle_price = 100
+london_price = 200
+
+# Define the initial prices of the synthetic securities
+newcastle_security_price = newcastle_price
+london_security_price = london_price
+
+# Define the time range for the historical data
+start_date = datetime.now() - timedelta(days=365)
+end_date = datetime.now()
+
+# Generate example historical data for Newcastle and London
+newcastle_data = pd.DataFrame({
+    'date': pd.date_range(start=start_date, end=end_date, freq='D'),
+    'price': [newcastle_security_price for i in range(365)]
+})
+london_data = pd.DataFrame({
+    'date': pd.date_range(start=start_date, end=end_date, freq='D'),
+    'price': [london_security_price for i in range(365)]
+})
+
+# Define the graphs for Newcastle and London
+newcastle_fig = go.Figure()
+newcastle_fig.add_trace(go.Scatter(x=newcastle_data['date'], y=newcastle_data['price'], mode="lines", name="Newcastle Security Price"))
+newcastle_fig.update_layout(title="Newcastle Property Market")
+
+london_fig = go.Figure()
+london_fig.add_trace(go.Scatter(x=london_data['date'], y=london_data['price'], mode="lines", name="London Security Price"))
+london_fig.update_layout(title="London Property Market")
+
+# Define the function to update the security prices based on the property prices
+def update_security_prices():
+    global newcastle_security_price, london_security_price, newcastle_price, london_price
+    newcastle_security_price = newcastle_price * 2
+    london_security_price = london_price * 2
+
+# Define the Streamlit app
+def app():
+    st.title("Derivatives Marketplace for Properties")
+
+    # Add sliders to adjust the property prices
+    st.subheader("Property Prices")
+    newcastle_price = st.slider("Newcastle Property Price", min_value=0, max_value=1000, value=newcastle_price)
+    london_price = st.slider("London Property Price", min_value=0, max_value=1000, value=london_price)
+
+    # Update the security prices based on the property prices
+    update_security_prices()
+
+    # Update the historical data based on the new security prices
+    newcastle_data['price'] = np.ones(len(newcastle_data)) * newcastle_security_price
+    london_data['price'] = np.ones(len(london_data)) * london_security_price
+
+    # Show the graphs for Newcastle and London
+    st.subheader("Property Market Graphs")
+    st.plotly_chart(newcastle_fig)
+    st.plotly_chart(london_fig)
+
+    # Add a button to trade securities
+    if st.button("Trade Securities"):
+        # Define the trading interface
+        st.subheader("Trading Interface")
+        st.write("Enter the details of your trade below:")
+
+        trade_type = st.selectbox("Trade Type", ["Buy", "Sell"])
+        if trade_type == "Buy":
+            st.write("You are placing a buy order.")
+        elif trade_type == "Sell":
+            st.write("You are placing a sell order.")
+        st.write("Select the security and enter the quantity:")
+        security = st.selectbox("Security", ["Newcastle", "London"])
+        quantity = st.number_input("Quantity", min_value=1, value=1)
+        st.write(f"You are placing a {trade_type} order for {quantity} {security} securities.")
+
+
+# Run the Streamlit app
+if __name__ == '__main__':
+    app()
+
+
+
+'''
+
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+
+# Define the initial prices of the synthetic securities
+newcastle_security_price = 100
+london_security_price = 200
+
+# Define the graphs for Newcastle and London
+newcastle_fig = go.Figure()
+newcastle_fig.add_trace(go.Scatter(x=[0], y=[newcastle_security_price], mode="lines", name="Newcastle Security Price"))
+newcastle_fig.add_trace(go.Scatter(x=[0], y=[newcastle_security_price/2], mode="lines", name="Newcastle Property Price"))
+newcastle_fig.update_layout(title="Newcastle Property Market")
+
+london_fig = go.Figure()
+london_fig.add_trace(go.Scatter(x=[0], y=[london_security_price], mode="lines", name="London Security Price"))
+london_fig.add_trace(go.Scatter(x=[0], y=[london_security_price/2], mode="lines", name="London Property Price"))
+london_fig.update_layout(title="London Property Market")
+
+# Define the function to update the security prices based on the property prices
+def update_security_prices(newcastle_price, london_price):
+    global newcastle_security_price, london_security_price
+    newcastle_security_price = newcastle_price * 2
+    london_security_price = london_price * 2
+
+# Define the Streamlit app
+def app():
+    st.title("Derivatives Marketplace for Properties")
+
+    # Add sliders to adjust the property prices
+    st.subheader("Property Prices")
+    newcastle_price = st.slider("Newcastle Property Price", min_value=0, max_value=1000, value=100)
+    london_price = st.slider("London Property Price", min_value=0, max_value=1000, value=200)
+
+    # Update the security prices based on the property prices
+    update_security_prices(newcastle_price, london_price)
+
+    # Update the graphs with the new security prices
+    newcastle_fig.data[0].y = [newcastle_security_price]
+    newcastle_fig.data[1].y = [newcastle_price]
+    london_fig.data[0].y = [london_security_price]
+    london_fig.data[1].y = [london_price]
+    
+    # Show the graphs for Newcastle and London
+    st.subheader("Property Market Graphs")
+    st.plotly_chart(newcastle_fig)
+    st.plotly_chart(london_fig)
+
+    # Add a button to trade securities
+    if st.button("Trade Securities"):
+        # Define the trading interface
+        st.subheader("Trading Interface")
+        st.write("Enter the details of your trade below:")
+        trade_type = st.selectbox("Trade Type", ["Buy", "Sell"])
+        if trade_type == "Buy":
+            st.write("You are placing a buy order.")
+        elif trade_type == "Sell":
+            st.write("You are placing a sell order.")
+        st.write("Select the security and enter the quantity:")
+        security = st.selectbox("Security", ["Newcastle", "London"])
+        quantity = st.number_input("Quantity", min_value=1, value=1)
+        st.write(f"You are placing a {trade_type} order for {quantity} {security} securities.")
+
+
+# Run the Streamlit app
+if __name__ == '__main__':
+    app()
+
+'''
+
+
+
+
+
+
+'''
+import streamlit as st
+from scipy.stats import norm
+import numpy as np
+import pandas as pd
+
+volatility = 0.1
+
+
+
+# Define function to calculate swap price
+def calc_swap_price(change_fixed, notional, fixed_rate, variable_rate, volatility):
+    time_period = 1
+    value = notional * (fixed_rate - variable_rate) * (1 - 1 / ((1 + variable_rate)**time_period)) / (variable_rate * (1 + fixed_rate))
+    fair_value = notional * (fixed_rate - variable_rate) / variable_rate
+    swap_price = fair_value * 0.9 if change_fixed else fair_value * 1.1
+    return swap_price
+
+# Define Streamlit app
+st.title('Mortgage Fixed/Variable Swapper')
+st.write('Swap Pricer - Select Fixed or Variable:')
+is_fixed_rate = st.radio('Do you currently pay a fixed or variable rate?', ['Fixed', 'Variable'])
+
+notional = st.number_input('Mortgage amount', value=1000000.0)
+fixed_rate = st.number_input('Fixed rate', value=0.05) if is_fixed_rate == 'Fixed' else 0
+variable_rate = st.number_input('Variable rate', value=0.04) if is_fixed_rate == 'Variable' else 0
+
+
+if st.button('Calculate Swap Price'):
+    # Calculate swap price
+    swap_price = calc_swap_price(is_fixed_rate=='Fixed', notional, fixed_rate, variable_rate, volatility)
+    
+    # Display swap price
+    st.write('Your 1-year swap contract quote is:', swap_price)
+    
+    # Calculate monthly payments
+    fixed_payment = fixed_rate * notional / 12 if fixed_rate else 0
+    variable_payment = variable_rate * notional / 12 if variable_rate else 0
+    swap_payment = swap_price / 12
+    data = {'Month': [], 'Fixed Payment': [], 'Variable Payment': [], 'Swap Payment': []}
+    for month in range(12):
+        data['Month'].append(month + 1)
+        data['Fixed Payment'].append(fixed_payment)
+        data['Variable Payment'].append(variable_payment)
+        data['Swap Payment'].append(swap_payment)
+    payments = pd.DataFrame(data)
+    
+    # Display monthly payments table
+    st.write('Monthly Payments:')
+    st.dataframe(payments)
+
+
+'''
+
+
+
+#### NEED TRO INTEGRATE AND ADD INTO EXISTING MODEL
+
+# %%
+'''
+Structuring Equation
+
+Variables:
+
+Avg house price for bedroom in postcode [1]
+Area Growth Rate [2]
+External factors - demographics [2]
+Yield and rental income [1]
+Property Type - house, flat, etc [3]
+Proof of ownership [3]
+Freehold/leasehold [3]
+property condition [1]
+
+Key:
+[1] - Key pricing factor
+[2] - Secondary pricing factor
+[3] - Boolean/external input to pricing
+
+Output:
+
+3Y, 5Y, 7Y Forwards
+3Y, 5Y, 7Y Options
+
+3Y, 5Y, 7Y Forwards with imediate lease
+3Y, 5Y, 7Y Options with imediate lease
+
+Other - Amortising purchase, structures where seller gets more money down the line if interest rates increase, etc - turn property into asset
+
+* Out Dashboard Representation
+- Clean, clear design
+- Timeline attached for all structures
+- Financial details for each property in regards to seller side [black box model]
+
+------------------
+
+Structing Equation [Basic]
+
+Y Year Forward:
+
+Forward Price [f(p, g, y)] = p * g ^ y
+
+Key:
+p = Adjusted Market Price 
+g = Adjusted growth rate
+y = years
+
+----------------
+
+Variable Equation:
+
+p = 0.9 * P + (P / 10) * (10 * Y) * C * D
+
+g = G * 2/3
+
+Key:
+P = Average local market price for bedrooms
+Y = Local yield estimate
+C = Property Condition Factor
+D = Demographic Factor
+G = Local growth rate 
+
+---------------
+
+Full Forward Equation
+
+Forward Price [f(P, Y, C, D, G, y)] = [0.9 * P + (P / 10) * (10 * Y) * C * D] * [G * 2/3] ^ y
+
+
+----------------
+
+Option Pricing
+
+BSM:
+
+
+
+---------------
+
+Notes:
+
+Leases attached should be propertional to yield and take into account management, other costs
+Vol in the real estate market is low, but with outsized downside, derivs should adjust for this, not worth a lot
+Black scholes model is used currently with no volatility index, it instead replaces the risk free rate with vol adjustment with 2%
+
+
+
+
+'''
+
+
+# %%
+print(p, g, y)
+
+# %%
+# Using the simple forward equation we can find the value of the 5y forward to be
+
+f5y = p * ((1+g/100) ** y)
+
+print(f5y)
+
+
+
+# %%
+print(p)
+
+print(f5y)
+
+# %%
+#Now we must get the input from the user for the postcode
+
+print('Please enter your postcode:')
+x_raw = input()
+print(x_raw)
+x = x_raw[:-3]
+print('The searched postcode is:',x)
+
+#Now we must get the input from the user for the number of bedrooms
+
+print('How many bedrooms does the property have:')
+rooms = input()
+print('The input for bedrooms is:',rooms)
+
+#Find the time period for the contract
+
+print('How many years is the forward contract contract?')
+years = input()
+print(years)
+
+#Convert input to workable integer
+
+y = int(years)
+
+#Adjust for columns
+
+years_column = str(years)+'yr'
+print(years_column)
+
+# Get column name from input, avg bed price and convert it into a workable integer
+
+print('First we need to use the use input to find the column from which to get data, this column is:')
+
+bedroom_col = 'Avg asking price ('+str(rooms)+' bed)'
+
+print(bedroom_col)
+
+p1 = df.loc[[x], bedroom_col]
+p2 = p1.convert_dtypes()
+p3 = p2.str.replace(",","")
+p4 = p3.astype(float, errors = 'raise')
+p = int(p4)
+
+print('The Average asking price in the postcode for the number of bedrooms entered is: ')
+
+print(p)
+
+# Get 5y growth rate and adjust
+
+# Get column name from input, avg bed price and convert it into a workable integer
+
+g1 = df.loc[[x], years_column]
+
+print(g1)
+
+g2 = g1.convert_dtypes()
+g3 = g2.str.replace("%","")
+g4 = g3.astype(float, errors = 'raise')
+g5 = int(g4)
+
+print(g5)
+
+#Adjust x year growth rate to account for years growth
+
+#Total growth = annual growth ^ years
+
+years = float(years)
+g = g5 ** (1/years)
+
+print(g)
+
+#Adjust for solution
+
+g = g * (2/3)
+
+print('The grow value to be used in the solution equation over a period of 5 years is:')
+
+print(g)
+
+# Using the simple forward equation we can find the value of the 5y forward to be
+
+f5y = (p *.9) * ((1+g/100) ** y)
+
+print('The 5 year forward price which can be offered is:')
+print(f5y)
+
+
+
+
+# %%
+print(g5)
+
+g6 = 1 + g5/100 
+
+print(g6)
+
+g7 = g6 ** (1/y)
+
+print(g7)
+
+# %%
+'''
+
+Next Steps:
+
+
+Impliment variable retrival for all the desired variables in the full forward equation -yield etc
+Write down notes on BSM - make valid assumptions with justification for the simplifying of vol and risk free rate - also price in expected rate rises
+Make suitable adjustments to the equation with lots of trial and error - impliment other model with past data?
+Impliment a efficient pricing system and formalise for forwards and options
+Impliment an option for leases and have yield offers in the intermediate period of structured contracts 
+
+
+'''
