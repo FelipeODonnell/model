@@ -38,7 +38,7 @@ import altair as alt
 
 with st.sidebar: 
     st.image("https://www.onepointltd.com/wp-content/uploads/2020/03/inno2.png")
-    st.title("Blueblocks.ai")
+    st.title("Blueblock.ai")
     choice = st.radio("Navigation", ["Overview", "Valuation","Structuring","Swaps", "Market"])
     st.info("This project application helps you get instant valuations and structures solutions for your property")
 
