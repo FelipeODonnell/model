@@ -11,4 +11,4 @@ with st.sidebar:
     if st.button('All MVP Solutuons'):
         webbrowser.open_new_tab(url)
 
-st.image('Data/333368727_567698838713526_2956667945644696937_n.jpg')
+st.image('333368727_567698838713526_2956667945644696937_n.jpg')
