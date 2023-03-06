@@ -249,4 +249,4 @@ if choice == "Swaps":
 if choice == "Market": 
     st.title("Example of Derivatives Securities Market")
     st.write('This is an example of a security on the real estate market, this would allow investors to buy and sell forward and options contracts, this would be possible with individual properties as well as securities to track prices in certain areas, Blueblock would provide liquidity on this market, investors in securities would be institutions, buyers and sellers of properties would typically be individuals')
-    st.image('Data/333368727_567698838713526_2956667945644696937_n.jpg')
+    st.image('333368727_567698838713526_2956667945644696937_n.jpg')
